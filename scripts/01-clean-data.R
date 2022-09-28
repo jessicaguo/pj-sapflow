@@ -4,6 +4,7 @@ library(readxl)
 library(dplyr)
 library(lubridate)
 library(stringr)
+library(readr)
 
 # Read in data from data_raw
 fns <- list.files("data_raw/") # first 7 are sapflux files
@@ -23,12 +24,25 @@ clean_df <- raw_df %>%
          ind = as.numeric(str_sub(`tree id`, 2, 3)),
          site = str_sub(`tree id`, 4, 4),
          site2 = str_sub(`tree id`, 5, 5), 
-         ind
-         
-         
-         
-         %>%
-           case_when(. == 'v' ~ "Valley",
-                     . == "l" ~ "Left",
-                     . == "r" ~ "Right",
-                     . == "u" ~ "Upland"))
+         ind2 = case_when(site2 == "" ~ ind,
+                          site == "a" ~ ind, # keep 53a as 53
+                          site == "b" ~ 56), # rename 53b as 56
+         site = case_when(site2 == "" ~ site,
+                          site %in% c("a", "b") ~ site2),
+         site = case_when(site == 'v' ~ "Valley",
+                          site == "l" ~ "Left",
+                          site == "r" ~ "Right",
+                          site == "u" ~ "Upland")) %>%
+  select(-ind, -site2) %>%
+  rename(ind = ind2,
+         doy = `julian day`,
+         tree_id = `tree id`)
+
+clean_df %>%
+  group_by(species, site) %>%
+  summarize(n_ind = length(unique(ind)),
+            n_obs = n())
+# More pinyons (29) than junipers (16)
+
+# Save as .csv
+write_csv(clean_df, file = "data_clean/flux_combined.csv")
