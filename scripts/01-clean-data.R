@@ -1,4 +1,6 @@
-# Merge data from 7 .csv files
+# Clean and understand raw data files
+
+#### Merge data from 7 flux files ####
 
 library(readxl)
 library(dplyr)
@@ -44,5 +46,36 @@ clean_df %>%
             n_obs = n())
 # More pinyons (29) than junipers (16)
 
+
 # Save as .csv
 write_csv(clean_df, file = "data_clean/flux_combined.csv")
+
+#### Rename and structure env file ####
+sheets <- c("left 2017", "right 2017", "upland 2017", "valley 2017",
+            "left 2018", "right 2018", "upland 2018", "valley 2018")
+
+env_list <- list()
+for(i in 1:length(sheets)) {
+  if(sheets[i] == "valley 2017") {
+    raw_temp <- read_xlsx(paste0("data_raw/", fns[8]),
+                          sheet = sheets[i]) %>%
+      mutate(dt = as_datetime(`timestamp...2`) %>%
+               force_tz(tzone = "America/Los_Angeles")) %>%
+      mutate(par_avg = ifelse(par_total == 0, 0, `par_avg NO ZEROS`)) %>%
+      select(-`timestamp...2`, -`timestamp...3`, -`par_avg NO ZEROS`) %>%
+      relocate(par_avg, .before = par_total)
+      
+  } else {
+  raw_temp <- read_xlsx(paste0("data_raw/", fns[8]),
+                        sheet = sheets[i]) %>%
+    mutate(dt = as_datetime(`timestamp...2`) %>%
+             force_tz(tzone = "America/Los_Angeles")) %>%
+    select(-`timestamp...2`, -`timestamp...3`)
+  }
+  
+  env_list[[i]] <- raw_temp
+}
+lapply(env_list, colnames)
+
+env_list[[4]]
+env_df <- do.call(rbind, env_list)
