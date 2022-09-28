@@ -3,4 +3,5 @@
 .RData
 .Ruserdata
 
-/data_raw
+data_raw/
+data_clean/
