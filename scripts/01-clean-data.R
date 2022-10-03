@@ -7,6 +7,9 @@ library(dplyr)
 library(lubridate)
 library(stringr)
 library(readr)
+library(plantecophys)
+library(ggplot2)
+library(tidyr)
 
 # Read in data from data_raw
 fns <- list.files("data_raw/") # first 7 are sapflux files
@@ -63,19 +66,55 @@ for(i in 1:length(sheets)) {
                force_tz(tzone = "America/Los_Angeles")) %>%
       mutate(par_avg = ifelse(par_total == 0, 0, `par_avg NO ZEROS`)) %>%
       select(-`timestamp...2`, -`timestamp...3`, -`par_avg NO ZEROS`) %>%
-      relocate(par_avg, .before = par_total)
+      relocate(par_avg, .before = par_total) %>%
+      mutate(par_total = as.numeric(par_total),
+             par_avg = as.numeric(par_avg))
       
   } else {
   raw_temp <- read_xlsx(paste0("data_raw/", fns[8]),
                         sheet = sheets[i]) %>%
     mutate(dt = as_datetime(`timestamp...2`) %>%
              force_tz(tzone = "America/Los_Angeles")) %>%
-    select(-`timestamp...2`, -`timestamp...3`)
+    select(-`timestamp...2`, -`timestamp...3`)%>%
+    mutate(par_total = as.numeric(par_total),
+           par_avg = as.numeric(par_avg))
   }
   
   env_list[[i]] <- raw_temp
 }
 lapply(env_list, colnames)
+lapply(env_list, str)
 
-env_list[[4]]
-env_df <- do.call(rbind, env_list)
+# Combine into dataframe, add date and d_avg
+env_df <- do.call(rbind, env_list) %>%
+  mutate(date = paste(year, sprintf("%02d", month), sprintf("%02d", day),
+                      sep = "-") %>%
+           ymd(tz = "America/Los_Angeles"),
+         d_avg = RHtoVPD(rh_avg, airtc_avg),
+         site = str_to_sentence(site_name)) %>%
+  # Summarize to daily by site and date
+  group_by(site, date) %>%
+  summarize(d_max = max(d_avg, na.rm = TRUE),
+            d_mean = mean(d_avg, na.rm = TRUE),
+            d_min = min(d_avg, na.rm = TRUE),
+            d_n = sum(!is.na(d_avg)),
+            par_sum = sum(par_avg, na.rm = TRUE),
+            par_n = sum(!is.na(par_avg)),
+            t_max = max(airtc_avg, na.rm = TRUE),
+            t_mean = mean(airtc_avg, na.rm = TRUE),
+            t_min = min(airtc_avg, na.rm = TRUE),
+            t_n = sum(!is.na(airtc_avg)))
+
+# Check sample sizes
+env_df %>%
+  select(site, date, d_n, par_n, t_n) %>%
+  pivot_longer(-1:-2, 
+               names_to = "type",
+               values_to = "n") %>%
+  ggplot(aes(x = date, y = n, color = site)) +
+  geom_point() +
+  facet_grid(rows = vars(site),
+             cols = vars(type))
+         
+# Save as .csv
+write_csv(env_df, file = "data_clean/env_combined.csv")
