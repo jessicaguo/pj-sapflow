@@ -11,7 +11,7 @@ library(shiny)
 
 # Load data
 readRDS("veg.RDS")
-readRDS("probe.RDS")
+# readRDS("probe.RDS")
 
 # Define UI for application that draws a histogram
 shinyUI(navbarPage("Pinyon-Juniper sapflux",
@@ -28,11 +28,13 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                              choices = unique(veg$site_name),
                              selected = "left"),
                  uiOutput("dyn_species"),
-                 uiOutput("dyn_individuals")
+                 uiOutput("dyn_individuals"),
+                 uiOutput("dyn_year_slider"),
+                 uiOutput("dyn_date_slider")
                  ),
                # Show a plot of the generated distribution
                mainPanel(
-                 plotOutput("distPlot")
+                 plotOutput("vPlot")
                  )
              )
     )

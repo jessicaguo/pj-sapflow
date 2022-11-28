@@ -8,10 +8,22 @@
 #
 
 library(shiny)
+library(lubridate)
+library(ggplot2)
 
 # Load data
 readRDS("veg.RDS")
 readRDS("probe.RDS")
+readRDS("sapflow.RDS")
+
+# Join
+sap_all <- sapflow %>% 
+  left_join(probe, by = "probe_id") %>%
+  select(-starts_with("vdelta_")) %>%
+  left_join(veg, by = "veg_id") %>%
+  mutate(year = year(timestamp),
+         date = as.Date(timestamp)) %>%
+  relocate(year, date, .after = timestamp)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -24,7 +36,9 @@ shinyServer(function(input, output) {
     
     selectInput(inputId = "species",
                 label = "Select species:", 
-                choices = temp)
+                choices = temp,
+                selected = temp[1],
+                multiple = TRUE)
   })
   
   # Render a UI for selecting individuals
@@ -39,17 +53,58 @@ shinyServer(function(input, output) {
                 choices = temp,
                 selected = temp)
   })
+  
+  # Render a UI for selecting date range
+  output$dyn_year_slider <- renderUI({
+    temp <- sap_all %>%
+      filter(veg_id %in% input$individuals) %>%
+      pull(year)
+    
+    sliderInput(inputId = "year", 
+                label = "Select Year:", 
+                min = min(temp),
+                max = max(temp),
+                value = min(temp),
+                sep = "",
+                step = 1)
+    
+  })
+  
+  # Render a UI for selecting date range
+  output$dyn_date_slider <- renderUI({
+    temp <- sap_all %>%
+      filter(veg_id %in% input$individuals,
+             year == input$year) %>%
+      pull(date)
+    
+    sliderInput(inputId = "date_range", 
+                label = "Select Date Range:", 
+                min = min(temp),
+                max = max(temp),
+                value = c(min(temp),
+                          max(temp)))
+  })
+  
 
-    output$distPlot <- renderPlot({
+    output$vPlot <- renderPlot({
 
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+        # Filter dataset based on inputs
+        sub <- sap_all %>%
+          filter(site_name == input$site,
+                 veg_type %in% input$species,
+                 veg_id %in% input$individuals,
+                 date >= input$date_range[1],
+                 date <= input$date_range[2])
 
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
+        # Plot timeseries of raw voltages differences
+        ggplot(sub) +
+          geom_point(aes(x = timestamp,
+                         y = vdelta,
+                         color = veg_id,
+                         shape = veg_type)) +
+          scale_x_datetime("Date") +
+          scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
+          theme_bw(base_size = 12)
 
     })
 
