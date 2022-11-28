@@ -73,10 +73,10 @@ l1_Vmax %>%
 ggplot() +
   geom_line(data = filter(l1_filter, month == 7),
             aes(x = dt, y = SAP33_P9S)) +
-  geom_point(data = filter(l1_Vmax, Ind == "SAP33_P9S",
+  geom_point(data = filter(l1_Vmax, Ind == "SAP48_P2N",
                            month == 7), 
              aes(x = dt, y = Vmax, color = "Vmax")) +
-  geom_pointrange(data = filter(l1_Vmax, Ind == "SAP33_P9S",
+  geom_pointrange(data = filter(l1_Vmax, Ind == "SAP48_P2N",
                            month == 7), 
              aes(x = dt, y = Vmean,
                  ymin = Vmean - Vsd,
@@ -84,3 +84,9 @@ ggplot() +
                  col = "Vmean"),
              size = 0.25) +
   theme_bw()
+
+ggplot(filter(l1_filter, month == 7)) +
+  geom_point(aes(x = dt, y = SAP33_P9S)) +
+  geom_point(aes(x = dt, y = SAP44_P6N)) +
+  geom_point(aes(x = dt, y = SAP42_P1S)) +
+  geom_point(aes(x = dt, y = VPD/10, color = "VPD"))
