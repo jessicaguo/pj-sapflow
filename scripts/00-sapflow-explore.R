@@ -57,7 +57,8 @@ met <- probe_meta %>%
   mutate(vpd = RHtoVPD(rh_avg, airtc_avg),
          date = as.Date(timestamp,
                         tz = "America/Los_Angeles"),
-         year = year(timestamp))
+         year = year(timestamp), 
+         doy = yday(timestamp))
   
 # probe_date.csv
 probe_date <- read_csv("data_raw/sapflow_csv/probe_date.csv")

@@ -8,6 +8,7 @@
 #
 
 library(shiny)
+library(shinycssloaders)
 
 # Load data
 readRDS("veg.RDS")
@@ -30,11 +31,23 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                  uiOutput("dyn_species"),
                  uiOutput("dyn_individuals"),
                  uiOutput("dyn_year_slider"),
-                 uiOutput("dyn_date_slider")
+                 actionButton("refresh", "Refresh Plot")
                  ),
                # Show a plot of the generated distribution
                mainPanel(
-                 plotOutput("vPlot")
+                 tabsetPanel(
+                   tabPanel("All",
+                            sliderInput(inputId = "day_range",
+                                        label = "Select Day Range:",
+                                        min = 1,
+                                        max = 366,
+                                        value = c(1, 366),
+                                        width = '100%'),
+                            plotOutput("vPlot")%>%
+                              withSpinner(type = 8)), #loading indicator for plot),
+                   tabPanel("Trimmed")
+                 )
+                 
                  )
              )
     )

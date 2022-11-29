@@ -10,19 +10,23 @@
 library(shiny)
 library(lubridate)
 library(ggplot2)
+library(cowplot)
 
 # Load data
-readRDS("veg.RDS")
-readRDS("probe.RDS")
-readRDS("sapflow.RDS")
+veg <- readRDS("veg.RDS")
+probe <- readRDS("probe.RDS")
+sapflow <- readRDS("sapflow.RDS")
+met <- readRDS("met.RDS")
 
-# Join
+# Join tables
 sap_all <- sapflow %>% 
   left_join(probe, by = "probe_id") %>%
   select(-starts_with("vdelta_")) %>%
   left_join(veg, by = "veg_id") %>%
   mutate(year = year(timestamp),
-         date = as.Date(timestamp)) %>%
+         date = as.Date(timestamp,
+                        tz = "America/Los_Angeles"),
+         doy = yday(timestamp)) %>%
   relocate(year, date, .after = timestamp)
 
 # Define server logic required to draw a histogram
@@ -64,47 +68,79 @@ shinyServer(function(input, output) {
                 label = "Select Year:", 
                 min = min(temp),
                 max = max(temp),
-                value = min(temp),
+                value = 2013,
                 sep = "",
                 step = 1)
     
   })
   
   # Render a UI for selecting date range
-  output$dyn_date_slider <- renderUI({
-    temp <- sap_all %>%
-      filter(veg_id %in% input$individuals,
-             year == input$year) %>%
-      pull(date)
-    
-    sliderInput(inputId = "date_range", 
-                label = "Select Date Range:", 
-                min = min(temp),
-                max = max(temp),
-                value = c(min(temp),
-                          max(temp)))
-  })
+  # output$dyn_date_slider <- renderUI({
+  #   temp <- sap_all %>%
+  #     filter(veg_id %in% input$individuals,
+  #            year == input$year) %>%
+  #     pull(date)
+  #   
+  #   sliderInput(inputId = "date_range", 
+  #               label = "Select Date Range:", 
+  #               min = min(temp),
+  #               max = max(temp),
+  #               value = c(min(temp),
+  #                         max(temp)),
+  #               width = '100%')
+  # })
   
+  # Filter data by inputs
+  # Filter sapflux dataset based on inputs
+  sap_filter <- reactive(sap_all %>%
+    filter(site_name == input$site,
+           veg_type %in% input$species,
+           veg_id %in% input$individuals,
+           year == input$year))
+  
+  # Filter met dataset based on inputs
+  met_filter <- reactive(met %>%
+    filter(site_name == input$site,
+           year == input$year))
 
     output$vPlot <- renderPlot({
-
-        # Filter dataset based on inputs
-        sub <- sap_all %>%
-          filter(site_name == input$site,
-                 veg_type %in% input$species,
-                 veg_id %in% input$individuals,
-                 date >= input$date_range[1],
-                 date <= input$date_range[2])
+      
+      #include the refresh button so plot updates when refresh is clicked
+      input$refresh
+      
+      #use isolate() so changes to sap_sub() don't trigger the plot to update
+      sap_sub <- isolate(sap_filter()) 
+      met_sub <- isolate(met_filter())
 
         # Plot timeseries of raw voltages differences
-        ggplot(sub) +
-          geom_point(aes(x = timestamp,
+        fig1 <- sap_sub %>%
+          filter(doy >= input$day_range[1], 
+                 doy <= input$day_range[2]) %>%
+          ggplot() +
+          geom_line(aes(x = timestamp,
                          y = vdelta,
-                         color = veg_id,
+                         color = probe_id,
                          shape = veg_type)) +
           scale_x_datetime("Date") +
           scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
-          theme_bw(base_size = 12)
+          theme_bw(base_size = 14) +
+          theme(legend.position = "top")
+        
+        # Plot timeseries of VPD
+        fig2 <- met_sub %>%
+          filter(doy >= input$day_range[1], 
+                 doy <= input$day_range[2]) %>%
+          ggplot() +
+          geom_line(aes(x = timestamp,
+                         y = vpd)) +
+          scale_x_datetime("Date") +
+          scale_y_continuous("VPD (kPa)") +
+          theme_bw(base_size = 14)
+        
+       plot_grid(fig1, fig2, 
+                 nrow = 2,
+                 rel_heights = c(1.5, 1),
+                 align = "v") 
 
     })
 
