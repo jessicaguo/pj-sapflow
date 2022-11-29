@@ -7,6 +7,8 @@
 library(readr)
 library(dplyr)
 library(tidyr)
+library(plantecophys)
+library(lubridate)
 
 #### Tables ####
 # veg.csv
@@ -36,7 +38,8 @@ site_date <- read_csv("data_raw/sapflow_csv/site_date.csv")
 # 5 records of start and end dates, but looks to be outdated
 
 # sapflow.csv
-sapflow <- read_csv("data_raw/sapflow_csv/sapflow.csv")
+sapflow <- read_csv("data_raw/sapflow_csv/sapflow.csv",
+                    locale = locale(tz = "America/Los_Angeles"))
 # 24 million records of raw 15 minutely delta voltages for each tree and probe
 
 # probe.csv
@@ -44,12 +47,18 @@ probe <- read_csv("data_raw/sapflow_csv/probe.csv")
 # 130 records of unique probe IDs, including at multiple depths
 
 # probe_meta.csv
-probe_meta <- read_csv("data_raw/sapflow_csv/probe_meta.csv")
+probe_meta <- read_csv("data_raw/sapflow_csv/probe_meta.csv",
+                       locale = locale(tz = "America/Los_Angeles"))
 tapply(probe_meta$timestamp, probe_meta$site_name, range, na.rm = TRUE)
 # Micromet records for six sites, 2011-2019 for left and right,
 # 2012-2019 for upland, 2012-2018 for valley
 
-
+met <- probe_meta %>%
+  mutate(vpd = RHtoVPD(rh_avg, airtc_avg),
+         date = as.Date(timestamp,
+                        tz = "America/Los_Angeles"),
+         year = year(timestamp))
+  
 # probe_date.csv
 probe_date <- read_csv("data_raw/sapflow_csv/probe_date.csv")
 # 143 records of time periods of bad data (?) for individual probes
@@ -74,3 +83,4 @@ saveRDS(sap_all, file = "app/sap_all.RDS")
 saveRDS(veg, file = "app/veg.RDS")
 saveRDS(probe, file = "app/probe.RDS")
 saveRDS(sapflow, file = "app/sapflow.RDS")
+saveRDS(met, file = "app/met.RDS")
