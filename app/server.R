@@ -9,6 +9,7 @@
 
 library(shiny)
 library(lubridate)
+library(dplyr)
 library(ggplot2)
 library(cowplot)
 
@@ -16,7 +17,7 @@ library(cowplot)
 sapflow <- readRDS("sapflow.RDS")
 probe <- readRDS("probe.RDS")
 veg <- readRDS("veg.RDS")
-probe <- readRDS("probe_batt.RDS")
+probe_batt <- readRDS("probe_batt.RDS")
 
 met <- readRDS("met.RDS")
 
