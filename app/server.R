@@ -13,9 +13,11 @@ library(ggplot2)
 library(cowplot)
 
 # Load data
-veg <- readRDS("veg.RDS")
-probe <- readRDS("probe.RDS")
 sapflow <- readRDS("sapflow.RDS")
+probe <- readRDS("probe.RDS")
+veg <- readRDS("veg.RDS")
+probe <- readRDS("probe_batt.RDS")
+
 met <- readRDS("met.RDS")
 
 # Join tables
@@ -23,6 +25,7 @@ sap_all <- sapflow %>%
   left_join(probe, by = "probe_id") %>%
   select(-starts_with("vdelta_")) %>%
   left_join(veg, by = "veg_id") %>%
+  left_join(probe_batt, by = c("site_name", "timestamp")) %>%
   mutate(year = year(timestamp),
          date = as.Date(timestamp,
                         tz = "America/Los_Angeles"),

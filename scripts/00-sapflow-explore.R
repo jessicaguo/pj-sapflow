@@ -53,6 +53,12 @@ tapply(probe_meta$timestamp, probe_meta$site_name, range, na.rm = TRUE)
 # Micromet records for six sites, 2011-2019 for left and right,
 # 2012-2019 for upland, 2012-2018 for valley
 
+# This version for battery levels, to be joined
+probe_batt <- read_csv("data_raw/sapflow_csv/probe_meta.csv",
+                      locale = locale(tz = "America/Los_Angeles")) %>%
+  select(site_name, timestamp, externalbatt_min)
+
+# This version for standalone met data
 met <- probe_meta %>%
   mutate(vpd = RHtoVPD(rh_avg, airtc_avg),
          date = as.Date(timestamp,
@@ -70,18 +76,22 @@ probe_date <- read_csv("data_raw/sapflow_csv/probe_date.csv")
 unique(sapflow$probe_id) %in% unique(probe$probe_id)
 unique(probe$veg_id) %in% unique(veg$veg_id)
 unique(veg$site_name) %in% unique(site$site_name) # no need to join site table
+sum(!is.na(unique(sapflow$timestamp) %in% unique(probe_meta$timestamp)))
 
-sap_all <- sapflow %>% 
+sap_all <- sapflow %>%
   left_join(probe, by = "probe_id") %>%
   select(-starts_with("vdelta_")) %>%
-  left_join(veg, by = "veg_id") 
+  left_join(veg, by = "veg_id") %>%
+  left_join(probe_batt, by = c("site_name", "timestamp"))
 
 colnames(sap_all)
 
-saveRDS(sap_all, file = "app/sap_all.RDS")
+# saveRDS(sap_all, file = "app/sap_all.RDS")
 
 # alternatively, if too big, save separate tables
-saveRDS(veg, file = "app/veg.RDS")
-saveRDS(probe, file = "app/probe.RDS")
 saveRDS(sapflow, file = "app/sapflow.RDS")
+saveRDS(probe, file = "app/probe.RDS")
+saveRDS(veg, file = "app/veg.RDS")
+saveRDS(probe_batt, file = "app/probe_batt.RDS")
+
 saveRDS(met, file = "app/met.RDS")

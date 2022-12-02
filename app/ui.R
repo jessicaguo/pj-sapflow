@@ -9,6 +9,7 @@
 
 library(shiny)
 library(shinycssloaders)
+library(shinyWidgets)
 
 # Load data
 readRDS("veg.RDS")
@@ -16,11 +17,22 @@ readRDS("veg.RDS")
 
 # Define UI for application that draws a histogram
 shinyUI(navbarPage("Pinyon-Juniper sapflux",
+                   # in-code CSS to manipulate the base slider
+                   # I got the css class for this by right-clicking on the handle and clicking
+                   # inspect element then finding the appropriate class and fooling around with
+                   # it in the inspector - trial and error
+                   tags$style(type = "text/css",
+                              ".irs--shiny .irs-handle {width: 14px; height: 14px; top: 22px;}"),
+
+                   
 
     # Tab panel
     tabPanel("Explore raw data",
              # Application title
              titlePanel("Pinyon-Juniper"),
+             # Can use a different theme provided by shinyWidgets package that axes
+             # the bubble
+             # chooseSliderSkin("Flat"),
              # Sidebar with a slider input for number of bins
              sidebarLayout(
                sidebarPanel(
