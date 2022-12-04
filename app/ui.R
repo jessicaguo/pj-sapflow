@@ -10,10 +10,10 @@
 library(shiny)
 library(shinycssloaders)
 library(shinyWidgets)
+library(dplyr)
 
 # Load data
-readRDS("veg.RDS")
-# readRDS("probe.RDS")
+veg <- readRDS("veg.RDS")
 
 # Define UI for application that draws a histogram
 shinyUI(navbarPage("Pinyon-Juniper sapflux",
@@ -21,8 +21,10 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                    # I got the css class for this by right-clicking on the handle and clicking
                    # inspect element then finding the appropriate class and fooling around with
                    # it in the inspector - trial and error
-                   tags$style(type = "text/css",
-                              ".irs--shiny .irs-handle {width: 14px; height: 14px; top: 22px;}"),
+                   tags$head(
+                     tags$style(type = "text/css",
+                              ".irs--shiny .irs-handle {width: 14px; height: 14px; top: 22px;}")
+                     ),
 
                    
 
