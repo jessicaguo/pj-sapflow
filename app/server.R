@@ -13,25 +13,12 @@ library(dplyr)
 library(ggplot2)
 library(cowplot)
 
-# Load data
-sapflow <- readRDS("sapflow.RDS")
-probe <- readRDS("probe.RDS")
+# Load tables
 veg <- readRDS("veg.RDS")
-probe_batt <- readRDS("probe_batt.RDS")
-
+# Load processed data
 met <- readRDS("met.RDS")
+sapflux <- readRDS("sapflux.RDS")
 
-# Join tables
-sap_all <- sapflow %>% 
-  left_join(probe, by = "probe_id") %>%
-  select(-starts_with("vdelta_")) %>%
-  left_join(veg, by = "veg_id") %>%
-  left_join(probe_batt, by = c("site_name", "timestamp")) %>%
-  mutate(year = year(timestamp),
-         date = as.Date(timestamp,
-                        tz = "America/Los_Angeles"),
-         doy = yday(timestamp)) %>%
-  relocate(year, date, .after = timestamp)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -64,7 +51,7 @@ shinyServer(function(input, output) {
   
   # Render a UI for selecting date range
   output$dyn_year_slider <- renderUI({
-    temp <- sap_all %>%
+    temp <- sapflux %>%
       filter(veg_id %in% input$individuals) %>%
       pull(year)
     
@@ -74,7 +61,8 @@ shinyServer(function(input, output) {
                 max = max(temp),
                 value = 2013,
                 sep = "",
-                step = 1)
+                step = 1,
+                ticks = FALSE)
     
   })
   
@@ -96,7 +84,7 @@ shinyServer(function(input, output) {
   
   # Filter data by inputs
   # Filter sapflux dataset based on inputs
-  sap_filter <- reactive(sap_all %>%
+  sap_filter <- reactive(sapflux %>%
     filter(site_name == input$site,
            veg_type %in% input$species,
            veg_id %in% input$individuals,
@@ -121,10 +109,11 @@ shinyServer(function(input, output) {
           filter(doy >= input$day_range[1], 
                  doy <= input$day_range[2]) %>%
           ggplot() +
-          geom_line(aes(x = timestamp,
+          geom_point(aes(x = timestamp,
                          y = vdelta,
                          color = probe_id,
-                         shape = veg_type)) +
+                         shape = veg_type),
+                     size =  0.2) +
           scale_x_datetime("Date") +
           scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
           theme_bw(base_size = 14) +
@@ -147,5 +136,7 @@ shinyServer(function(input, output) {
                  align = "v") 
 
     })
+    
+    
 
 })

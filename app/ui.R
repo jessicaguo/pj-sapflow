@@ -14,6 +14,7 @@ library(dplyr)
 
 # Load data
 veg <- readRDS("veg.RDS")
+uni.sites <- unique(veg$site_name)
 
 # Define UI for application that draws a histogram
 shinyUI(navbarPage("Pinyon-Juniper sapflux",
@@ -40,7 +41,7 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                sidebarPanel(
                  selectInput("site",
                              "Select site:",
-                             choices = unique(veg$site_name),
+                             choices = uni.sites,
                              selected = "left"),
                  uiOutput("dyn_species"),
                  uiOutput("dyn_individuals"),
@@ -50,16 +51,22 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                # Show a plot of the generated distribution
                mainPanel(
                  tabsetPanel(
-                   tabPanel("All",
+                   tabPanel("Trimmed",
                             sliderInput(inputId = "day_range",
                                         label = "Select Day Range:",
                                         min = 1,
                                         max = 366,
                                         value = c(1, 366),
                                         width = '100%'),
-                            plotOutput("vPlot")%>%
+                            plotOutput("vPlot") %>%
                               withSpinner(type = 8)), #loading indicator for plot),
-                   tabPanel("Trimmed")
+                   tabPanel("Baselined",
+                            sliderInput(inputId = "day_range2",
+                                        label = "Select Day Range:",
+                                        min = 1,
+                                        max = 366,
+                                        value = c(1, 366),
+                                        width = '100%'))
                  )
                  
                  )
