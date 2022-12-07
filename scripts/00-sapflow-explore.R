@@ -4,11 +4,14 @@
 # P is Pinus monophylla
 # J is Juniperus osteosperma
 
+# Also prep snotel data
+
 library(readr)
 library(dplyr)
 library(tidyr)
 library(plantecophys)
 library(lubridate)
+library(readxl)
 
 #### Tables ####
 # veg.csv
@@ -67,10 +70,11 @@ met <- probe_meta %>%
          doy = yday(timestamp))
   
 # probe_date.csv
-probe_date <- read_csv("data_raw/sapflow_csv/probe_date.csv")
+probe_date <- read_csv("data_raw/sapflow_csv/probe_date.csv",
+                       locale = locale(tz = "America/Los_Angeles"))
 # 143 records of time periods of bad data (?) for individual probes
-# Need to email Wade to understand how it was generated
-# And if that data can be thrown out
+# Data can be eliminated from sapflow
+
 
 # Join together relevant tables for raw data page of app
 unique(sapflow$probe_id) %in% unique(probe$probe_id)
@@ -86,12 +90,28 @@ sap_all <- sapflow %>%
 
 colnames(sap_all)
 
-# saveRDS(sap_all, file = "app/sap_all.RDS")
+# Clunky way of non-equi join: for loop and anti-join
+sap_remove <- list()
+for(i in 1:nrow(probe_date)){
+  sap_remove[[i]] <- sap_all |> 
+    filter(probe_id == probe_date$probe_id[i],
+           timestamp >= probe_date$date_begin[i], 
+           timestamp <= probe_date$date_end[i])
+}
+sap_to_trim <- do.call(rbind, sap_remove)
+nrow(sap_to_trim)/nrow(sap_all) # 5.87% of observations removed
 
-# alternatively, if too big, save separate tables
-saveRDS(sapflow, file = "app/sapflow.RDS")
-saveRDS(probe, file = "app/probe.RDS")
-saveRDS(veg, file = "app/veg.RDS")
-saveRDS(probe_batt, file = "app/probe_batt.RDS")
+sap_trimmed <- sap_all |> 
+  anti_join(sap_to_trim)
 
-saveRDS(met, file = "app/met.RDS")
+##### SNOTEL #####
+
+sno <- read_xlsx("data_raw/Porter_SNOTEL_daily summary.xlsx",
+                 skip = 3) %>%
+  mutate(Date = as.Date(Date),
+         date = as.Date(force_tz(Date, tz = "America/Los_Angeles")) - 1) %>%
+  relocate(date, .after = Date) %>%
+  rename(tavg_C = `TAVG.D-1 (degC)`)
+
+saveRDS(sno, file = "data_clean/snotel.RDS")
+
