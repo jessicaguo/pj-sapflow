@@ -58,7 +58,8 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                                         max = 366,
                                         value = c(1, 366),
                                         width = '100%'),
-                            plotOutput("vPlot") %>%
+                            plotOutput("vPlot",
+                                       height = "600px") %>%
                               withSpinner(type = 8)), #loading indicator for plot),
                    tabPanel("Baselined",
                             sliderInput(inputId = "day_range2",

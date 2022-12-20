@@ -116,7 +116,7 @@ shinyServer(function(input, output) {
                      size =  0.2) +
           scale_x_datetime("Date") +
           scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
-          theme_bw(base_size = 14) +
+          theme_bw(base_size = 16) +
           theme(legend.position = "top")
         
         # Plot timeseries of VPD
@@ -128,11 +128,11 @@ shinyServer(function(input, output) {
                          y = vpd)) +
           scale_x_datetime("Date") +
           scale_y_continuous("VPD (kPa)") +
-          theme_bw(base_size = 14)
+          theme_bw(base_size = 16)
         
        plot_grid(fig1, fig2, 
                  nrow = 2,
-                 rel_heights = c(1.5, 1),
+                 rel_heights = c(1.75, 1),
                  align = "v") 
 
     })
