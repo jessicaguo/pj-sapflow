@@ -8,3 +8,5 @@ data_clean/
 
 app/*.RDS
 app/rsconnect/
+
+test.csv
