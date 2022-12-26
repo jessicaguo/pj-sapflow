@@ -12,12 +12,15 @@ library(lubridate)
 library(dplyr)
 library(ggplot2)
 library(cowplot)
+library(TREXr)
 
 # Load tables
 veg <- readRDS("veg.RDS")
 # Load processed data
 met <- readRDS("met.RDS")
 sapflux <- readRDS("sapflux.RDS")
+# Load data to baseline
+baseline <- readRDS("baseline.RDS")
 
 
 # Define server logic required to draw a histogram
@@ -66,6 +69,54 @@ shinyServer(function(input, output) {
     
   })
   
+  # Render a UI for selecting species on tab 2
+  output$dyn_species2 <- renderUI({
+    temp <- veg %>%
+      filter(site_name == input$site2) %>%
+      pull(veg_type)
+    
+    selectInput(inputId = "species2",
+                label = "Select species:", 
+                choices = temp,
+                selected = temp[1],
+                multiple = TRUE)
+  })
+  
+  # Render a UI for selecting individuals on tab 2
+  output$dyn_individuals2 <- renderUI({
+    req(input$species2)
+    temp <- veg %>%
+      filter(site_name == input$site2,
+             veg_type == input$species2,
+             !is.na(veg_type)) %>%
+      pull(veg_id)
+    
+    selectInput(inputId = "individuals2",
+                label = "Select individuals:",
+                choices = temp,
+                selected = temp,
+                multiple = FALSE)
+  })
+  
+  # Render a UI for selecting sensors  on tab 2
+  output$dyn_sensor <- renderUI({
+    req(input$individuals2)
+    temp <- sapflux %>%
+      filter(site_name == input$site2,
+             veg_type == input$species2,
+             veg_id == input$individuals2) %>%
+      select(probe_id) %>%
+      unique() %>%
+      pull()
+    
+    selectInput(inputId = "sensor", # only one at a time
+                label = "Select sensor:",
+                choices = temp,
+                selected = temp[1],
+                multiple = FALSE)
+  })
+  
+
   # Render a UI for selecting date range
   # output$dyn_date_slider <- renderUI({
   #   temp <- sap_all %>%
@@ -96,6 +147,7 @@ shinyServer(function(input, output) {
            year == input$year))
 
     output$vPlot <- renderPlot({
+      req(input$refresh)
       
       #include the refresh button so plot updates when refresh is clicked
       input$refresh
@@ -137,6 +189,82 @@ shinyServer(function(input, output) {
 
     })
     
+    # Reactive function to extract list of is.trex objects by sensor name, baseline
+    trex <- reactive({
+      req(input$sensor)
+      
+      dr_list <- list()
+      for(i in 1:length(baseline[[input$sensor]])) { 
+        dr_out <- tdm_dt.max(as.data.frame(baseline[[input$sensor]][[i]]), 
+                                methods = c("dr"),
+                                interpolate = FALSE,
+                                max.days = input$dr_interval, 
+                                df = TRUE)
+        
+        dr_list[[i]] <- cbind.data.frame(timestamp = as.POSIXct(dr_out$input$timestamp, tz = "GMT"),
+                                         vdelta = dr_out$input$value, 
+                                         max.dr = dr_out$max.dr$value)
+      }
+      
+      do.call(rbind, dr_list) %>%
+        mutate(timestamp = with_tz(timestamp, tzone = "America/Los_Angeles"),
+               doy = yday(timestamp),
+               year = year(timestamp)) %>%
+        filter(year == input$year2)
+      
+    })
+    
+    # Filter met dataset based on inputs
+    met_filter2 <- reactive(met %>%
+                             filter(site_name == input$site2,
+                                    year == input$year2))
+    
+    # Plot baseline with double regression and raw data
+    
+    output$drPlot <- renderPlot({
+      req(input$refresh2)
+      
+      #include the refresh button so plot updates when refresh is clicked
+      input$refresh2
+      
+      #use isolate() so changes to trex() don't trigger the plot to update
+      dr <- isolate(trex()) 
+      met_sub <- isolate(met_filter2())
+      
+      
+      # Plot timeseries of raw voltages differences
+      fig1 <- dr %>%
+        filter(doy >= input$day_range2[1], 
+               doy <= input$day_range2[2]) %>%
+        ggplot() +
+        geom_point(aes(x = timestamp,
+                       y = vdelta),
+                   size =  0.2) +
+        geom_step(aes(x = timestamp,
+                      y = max.dr, 
+                      col = "Baseline")) +
+        scale_x_datetime("Date") +
+        scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
+        theme_bw(base_size = 16) +
+        theme(legend.position = "top")
+      
+      # Plot timeseries of VPD
+      fig2 <- met_sub %>%
+        filter(doy >= input$day_range2[1], 
+               doy <= input$day_range2[2]) %>%
+        ggplot() +
+        geom_line(aes(x = timestamp,
+                      y = vpd)) +
+        scale_x_datetime("Date") +
+        scale_y_continuous("VPD (kPa)") +
+        theme_bw(base_size = 16)
+      
+      plot_grid(fig1, fig2, 
+                nrow = 2,
+                rel_heights = c(1.75, 1),
+                align = "v") 
+      
+    })
     
 
 })

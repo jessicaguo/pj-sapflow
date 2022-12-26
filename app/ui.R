@@ -29,10 +29,10 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
 
                    
 
-    # Tab panel
+    # Tab panel 1 - Explore
     tabPanel("Explore raw data",
              # Application title
-             titlePanel("Pinyon-Juniper"),
+             titlePanel("All sites"),
              # Can use a different theme provided by shinyWidgets package that axes
              # the bubble
              # chooseSliderSkin("Flat"),
@@ -60,16 +60,56 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                                         width = '100%'),
                             plotOutput("vPlot",
                                        height = "600px") %>%
-                              withSpinner(type = 8)), #loading indicator for plot),
-                   tabPanel("Baselined",
-                            sliderInput(inputId = "day_range2",
-                                        label = "Select Day Range:",
-                                        min = 1,
-                                        max = 366,
-                                        value = c(1, 366),
-                                        width = '100%'))
+                              withSpinner(type = 8)) #loading indicator for plot),
+                
                  )
                  
+                 )
+             )
+    ),
+    
+    # Tab panel 2 - Baseline
+    tabPanel("Baseline data",
+             # Application title
+             titlePanel("Pinyon-Juniper sites"),
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("site2",
+                             "Select site:",
+                             choices = c("left", "right", "upland", "valley"),
+                             selected = "left"),
+                 uiOutput("dyn_species2"),
+                 uiOutput("dyn_individuals2"),
+                 uiOutput("dyn_sensor"),
+                 sliderInput(inputId = "year2", 
+                             label = "Select Year:", 
+                             min = 2013,
+                             max = 2018,
+                             value = 2013,
+                             sep = "",
+                             step = 1,
+                             ticks = TRUE),
+                 sliderInput(inputId = "dr_interval",
+                             label = "Select double regression interval:",
+                             min = 1,
+                             max = 7,
+                             value = 3, 
+                             step = 1,
+                             ticks = FALSE),
+                 actionButton("refresh2", "Refresh Plot")
+               ),
+               # Show a plot of the generated distribution
+               mainPanel(
+                 h4(textOutput("Baselining with double regression from TREX")),
+                 sliderInput(inputId = "day_range2",
+                             label = "Select Day Range:",
+                             min = 1,
+                             max = 366,
+                             value = c(1, 366),
+                             width = '100%'),
+                 plotOutput("drPlot",
+                            height = "600px") %>%
+                   withSpinner(type = 8)
                  )
              )
     )
