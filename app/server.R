@@ -160,9 +160,10 @@ shinyServer(function(input, output) {
            veg_id %in% input$individuals,
            year == input$year))
   
-  # Filter met dataset based on inputs
+  # Filter met dataset based on inputs 
+  # Currently set to "right" based on least incomplete VPD data
   met_filter <- reactive(met %>%
-    filter(site_name == input$site,
+    filter(site_name == "right", #input$site
            year == input$year))
 
     output$vPlot <- renderPlot({
@@ -216,14 +217,16 @@ shinyServer(function(input, output) {
       dr_list <- list()
       for(i in 1:length(baseline[[input$sensor]])) { 
         dr_out <- tdm_dt.max(as.data.frame(baseline[[input$sensor]][[i]]), 
-                                methods = c("dr"),
+                                methods = c("pd", "mw", "dr"),
                                 interpolate = FALSE,
                                 max.days = input$dr_interval, 
                                 df = TRUE)
         
         dr_list[[i]] <- cbind.data.frame(timestamp = as.POSIXct(dr_out$input$timestamp, tz = "GMT"),
                                          vdelta = dr_out$input$value, 
-                                         max.dr = dr_out$max.dr$value)
+                                         max.dr = dr_out$max.dr$value,
+                                         max.mw = dr_out$max.mw$value,
+                                         max.pd = dr_out$max.pd$value)
       }
       
       do.call(rbind, dr_list) %>%
@@ -261,8 +264,14 @@ shinyServer(function(input, output) {
                        y = vdelta),
                    size =  0.2) +
         geom_step(aes(x = timestamp,
+                      y = max.pd, 
+                      col = "Predawn")) +
+        geom_step(aes(x = timestamp,
                       y = max.dr, 
-                      col = "Baseline")) +
+                      col = "Double regression")) +
+        geom_step(aes(x = timestamp,
+                      y = max.mw, 
+                      col = "Moving window")) +
         scale_x_datetime("Date") +
         scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
         theme_bw(base_size = 16) +
@@ -281,7 +290,7 @@ shinyServer(function(input, output) {
       
       plot_grid(fig1, fig2, 
                 nrow = 2,
-                rel_heights = c(1.75, 1),
+                rel_heights = c(1.25, 1),
                 align = "v") 
       
     })
