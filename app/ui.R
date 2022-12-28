@@ -101,12 +101,7 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                # Show a plot of the generated distribution
                mainPanel(
                  h4(textOutput("Baselining with double regression from TREX")),
-                 sliderInput(inputId = "day_range2",
-                             label = "Select Day Range:",
-                             min = 1,
-                             max = 366,
-                             value = c(1, 366),
-                             width = '100%'),
+                 uiOutput("dyn_dayrange2"),
                  plotOutput("drPlot",
                             height = "600px") %>%
                    withSpinner(type = 8)

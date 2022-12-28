@@ -116,6 +116,25 @@ shinyServer(function(input, output) {
                 multiple = FALSE)
   })
   
+  # Render a UI for selecting day of year range
+  
+  output$dyn_dayrange2 <- renderUI({
+    
+    # updates when refresh is clicked
+    input$refresh2
+    
+    temp <- trex() %>%
+      select(doy) %>%
+      range() 
+    
+    sliderInput(inputId = "day_range2",
+                label = "Select Day Range:",
+                min = temp[1],
+                max = temp[2],
+                value = temp,
+                width = '100%')
+  })
+  
 
   # Render a UI for selecting date range
   # output$dyn_date_slider <- renderUI({
@@ -151,6 +170,7 @@ shinyServer(function(input, output) {
       
       #include the refresh button so plot updates when refresh is clicked
       input$refresh
+      
       
       #use isolate() so changes to sap_sub() don't trigger the plot to update
       sap_sub <- isolate(sap_filter()) 
