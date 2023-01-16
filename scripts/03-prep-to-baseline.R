@@ -1,10 +1,47 @@
 # Prepare curated sensor data to be baselined
+# Add manual curation and checks 
 
+library(readr)
 library(lubridate)
 library(TREXr)
 library(dplyr)
 library(ggplot2)
+# pak::pak("tidyverse/dplyr") # For trying development version of dplyr
+library(dplyr)
+#### Validation and testing of manual curation ####
+# Read in delineated times
+clip <- read_csv("data_raw/sapflow_clip.csv")
 
+# Test whether years match by each row
+test_year <- clip %>% 
+  mutate(yr = year(date_start),
+         yr2 = year(date_end),
+         yr_match1 = ifelse(year == yr, TRUE, FALSE),
+         yr_match2 = ifelse(year == yr2, TRUE, FALSE),
+         yr_match3 = ifelse(yr == yr2, TRUE, FALSE))
+sum(test_year$yr_match1) == nrow(clip)
+sum(test_year$yr_match2) == nrow(clip)
+sum(test_year$yr_match3) == nrow(clip)
+
+# Test if duration is at least 7 days
+test_dur <- clip %>% 
+  mutate(dur = difftime(date_end, date_start, units = "days") %>%
+           as.numeric() + 1)
+length(which(test_dur$dur < 7)) == 0
+
+# Test if periods are non-overlapping
+test_overlap <- clip %>%
+  group_by(probe_id) %>%
+  mutate(date_start_next = lead(date_start),
+         non_overlap = ifelse(date_start_next > date_end, TRUE, FALSE))
+sum(test_overlap$non_overlap, na.rm = TRUE) == sum(!is.na(test_overlap$date_start_next))
+
+# Test if probe labels are correct
+probe <- read_csv("data_raw/sapflow_csv/probe.csv")
+
+sum(unique(clip$probe_id) %in% probe$probe_id) == length(unique(clip$probe_id))
+
+####  Develop data for app, round 1 ####
 # Read in data
 sapflux <- readRDS("app/sapflux.RDS")
 attr(sapflux$timestamp, "tzone")
@@ -23,6 +60,21 @@ sensors <- unique(sap$probe_id)
 length(sensors) # 94 sensors
 length(unique(sap$veg_id)) # 47 trees
 
+# Use first pass of manual sapflow_clip 
+
+dat1 <- data.frame(probes = rep(c("x", "y", "z"), each = 30),
+                   date = rep(seq(as.Date("2023-01-01"), as.Date("2023-01-30"), length.out = 30),
+                              3))
+dat2 <- data.frame(probes = c("x", "y", "z"),
+                   date_st = c(as.Date("2023-01-02"), as.Date("2023-01-03"), as.Date("2023-01-04")),
+                   date_en = c(as.Date("2023-01-19"), as.Date("2023-01-20"), as.Date("2023-01-21")))
+test <- dat1 |>
+  right_join(dat2, join_by(date >= date_st, date <= date_en, probes))
+
+test <- sap %>%
+  right_join(clip, join_by(date >= date_start, date <= date_end, probe_id))
+
+nrow(sap) - nrow(test)
 # Set up empty list of lists - will have 94 elements, each a list
 
 sap_list <- list()
