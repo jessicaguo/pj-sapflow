@@ -17,7 +17,8 @@ library(TREXr)
 # Load tables
 veg <- readRDS("veg.RDS")
 # Load processed data
-met <- readRDS("met.RDS")
+# met <- readRDS("met.RDS")
+met <- readRDS("met_composite.RDS")
 sapflux <- readRDS("sapflux.RDS")
 # Load data to baseline
 baseline <- readRDS("baseline.RDS")
@@ -128,7 +129,7 @@ shinyServer(function(input, output) {
       range() 
     
     sliderInput(inputId = "day_range2",
-                label = "Select Day Range:",
+                label = "Select day range:",
                 min = temp[1],
                 max = temp[2],
                 value = temp,
@@ -161,10 +162,9 @@ shinyServer(function(input, output) {
            year == input$year))
   
   # Filter met dataset based on inputs 
-  # Currently set to "right" based on least incomplete VPD data
+  # Currently using a composite average of left and right
   met_filter <- reactive(met %>%
-    filter(site_name == "right", #input$site
-           year == input$year))
+    filter(year == input$year))
 
     output$vPlot <- renderPlot({
       req(input$refresh)
@@ -239,8 +239,7 @@ shinyServer(function(input, output) {
     
     # Filter met dataset based on inputs
     met_filter2 <- reactive(met %>%
-                             filter(site_name == input$site2,
-                                    year == input$year2))
+                             filter(year == input$year2))
     
     # Plot baseline with double regression and raw data
     
@@ -251,14 +250,19 @@ shinyServer(function(input, output) {
       input$refresh2
       
       #use isolate() so changes to trex() don't trigger the plot to update
-      dr <- isolate(trex()) 
-      met_sub <- isolate(met_filter2())
+      dr <- isolate(trex()) %>%
+        filter(doy >= input$day_range2[1], 
+               doy <= input$day_range2[2]) 
+      met_sub <- isolate(met_filter2()) %>%
+        filter(doy >= input$day_range2[1], 
+               doy <= input$day_range2[2]) 
+      
+      both <- left_join(met_sub, dr, by = c("timestamp", "doy"))
+      rcor <- cor(select(both, vpd, vdelta),  use = "complete.obs")[2, 1]
       
       
       # Plot timeseries of raw voltages differences
       fig1 <- dr %>%
-        filter(doy >= input$day_range2[1], 
-               doy <= input$day_range2[2]) %>%
         ggplot() +
         geom_point(aes(x = timestamp,
                        y = vdelta),
@@ -279,8 +283,6 @@ shinyServer(function(input, output) {
       
       # Plot timeseries of VPD
       fig2 <- met_sub %>%
-        filter(doy >= input$day_range2[1], 
-               doy <= input$day_range2[2]) %>%
         ggplot() +
         geom_line(aes(x = timestamp,
                       y = vpd)) +
@@ -288,9 +290,25 @@ shinyServer(function(input, output) {
         scale_y_continuous("VPD (kPa)") +
         theme_bw(base_size = 16)
       
-      plot_grid(fig1, fig2, 
-                nrow = 2,
-                rel_heights = c(1.25, 1),
+      # Plot raw voltage differences vs. VPD
+      fig3 <- both %>%
+        ggplot() +
+        geom_point(aes(x = vpd, 
+                       y = vdelta, 
+                       color = as.factor(doy))) +
+        scale_x_continuous("VPD (kPa)") +
+        scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
+        theme_bw(base_size = 16) +
+        annotate("text", x = max(both$vpd,  na.rm = TRUE),
+                 y = max(both$vdelta, na.rm = TRUE),
+                 label = paste0("r = ", round(rcor, 3)),
+                 vjust = 1,
+                 hjust = 1) +
+        guides(color = "none")
+      
+      plot_grid(fig1, fig2, fig3, 
+                nrow = 3,
+                rel_heights = c(1.25, 1, 1.25),
                 align = "v") 
       
     })
