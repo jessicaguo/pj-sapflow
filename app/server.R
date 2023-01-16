@@ -17,7 +17,7 @@ library(TREXr)
 # Load tables
 veg <- readRDS("veg.RDS")
 # Load processed data
-met <- readRDS("met_composite.RDS")
+met <- readRDS("met.RDS")
 sapflux <- readRDS("sapflux.RDS")
 # Load data to baseline
 baseline <- readRDS("baseline.RDS")
@@ -161,8 +161,10 @@ shinyServer(function(input, output) {
            year == input$year))
   
   # Filter met dataset based on inputs 
+  # Currently set to "right" based on least incomplete VPD data
   met_filter <- reactive(met %>%
-    filter(year == input$year))
+    filter(site_name == "right", #input$site
+           year == input$year))
 
     output$vPlot <- renderPlot({
       req(input$refresh)
@@ -236,9 +238,9 @@ shinyServer(function(input, output) {
     })
     
     # Filter met dataset based on inputs
-    # Currently using composite data, averaged between right and left
     met_filter2 <- reactive(met %>%
-                              year == input$year2)
+                             filter(site_name == input$site2,
+                                    year == input$year2))
     
     # Plot baseline with double regression and raw data
     

@@ -77,7 +77,7 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                  selectInput("site2",
                              "Select site:",
                              choices = c("left", "right", "upland", "valley"),
-                             selected = "valley"),
+                             selected = "left"),
                  uiOutput("dyn_species2"),
                  uiOutput("dyn_individuals2"),
                  uiOutput("dyn_sensor"),
@@ -89,11 +89,6 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                              sep = "",
                              step = 1,
                              ticks = TRUE),
-                 actionButton("refresh2", "Refresh Plot")
-               ),
-               # Show a plot of the generated distribution
-               mainPanel(
-                 h4(textOutput("Baselining with double regression from TREX")),
                  sliderInput(inputId = "dr_interval",
                              label = "Select moving window interval:",
                              min = 1,
@@ -101,6 +96,11 @@ shinyUI(navbarPage("Pinyon-Juniper sapflux",
                              value = 3, 
                              step = 1,
                              ticks = FALSE),
+                 actionButton("refresh2", "Refresh Plot")
+               ),
+               # Show a plot of the generated distribution
+               mainPanel(
+                 h4(textOutput("Baselining with double regression from TREX")),
                  uiOutput("dyn_dayrange2"),
                  plotOutput("drPlot",
                             height = "600px") %>%
