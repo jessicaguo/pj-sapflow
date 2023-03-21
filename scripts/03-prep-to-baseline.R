@@ -207,13 +207,17 @@ nrow(sap) - nrow(sap_clean) # down from 12.8 to 7.8 million rows
 
 ##### Baselining cleaned data for app #####
 
-# Set up empty list of lists - will have 94 elements, each a list
+sensors <- unique(sap_clean$probe_id) 
+length(sensors) # 92 sensors
+length(unique(sap_clean$veg_id)) # 47 trees
+
+# Set up empty list of lists - will have 92 elements, each a list
 
 sap_list <- list()
 
-for(i in 1:length(sensors)){
+for(i in 28:length(sensors)){
   # Subset for each sensor
-  foo <- sap %>%
+  foo <- sap_clean %>%
     filter(probe_id == sensors[i]) %>%
     select(timestamp, vdelta) %>%
     rename(value = vdelta) %>%
