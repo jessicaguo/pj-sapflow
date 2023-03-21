@@ -8,6 +8,9 @@ library(dplyr)
 library(ggplot2)
 # pak::pak("tidyverse/dplyr") # For trying development version of dplyr
 library(dplyr)
+library(cowplot)
+library(slider)
+
 #### Validation and testing of manual curation ####
 # Read in delineated times
 clip <- read_csv("data_raw/sapflow_clip.csv")
@@ -45,6 +48,7 @@ sum(unique(clip$probe_id) %in% probe$probe_id) == length(unique(clip$probe_id))
 # Read in data
 sapflux <- readRDS("app/sapflux.RDS")
 attr(sapflux$timestamp, "tzone")
+met <- readRDS("app/met_composite.RDS")
 
 # Constrain by criteria:
 # Only from 4 PJ sites
@@ -62,19 +66,147 @@ length(unique(sap$veg_id)) # 47 trees
 
 # Use first pass of manual sapflow_clip 
 
-dat1 <- data.frame(probes = rep(c("x", "y", "z"), each = 30),
-                   date = rep(seq(as.Date("2023-01-01"), as.Date("2023-01-30"), length.out = 30),
-                              3))
-dat2 <- data.frame(probes = c("x", "y", "z"),
-                   date_st = c(as.Date("2023-01-02"), as.Date("2023-01-03"), as.Date("2023-01-04")),
-                   date_en = c(as.Date("2023-01-19"), as.Date("2023-01-20"), as.Date("2023-01-21")))
-test <- dat1 |>
-  right_join(dat2, join_by(date >= date_st, date <= date_en, probes))
+# dat1 <- data.frame(probes = rep(c("x", "y", "z"), each = 30),
+#                    date = rep(seq(as.Date("2023-01-01"), as.Date("2023-01-30"), length.out = 30),
+#                               3))
+# dat2 <- data.frame(probes = c("x", "y", "z"),
+#                    date_st = c(as.Date("2023-01-02"), as.Date("2023-01-03"), as.Date("2023-01-04")),
+#                    date_en = c(as.Date("2023-01-19"), as.Date("2023-01-20"), as.Date("2023-01-21")))
+# test <- dat1 |>
+#   right_join(dat2, join_by(date >= date_st, date <= date_en, probes))
 
+# Join with clipped time periods and composite VPD
 test <- sap %>%
-  right_join(clip, join_by(date >= date_start, date <= date_end, probe_id))
+  right_join(clip, join_by(date >= date_start, date <= date_end, 
+                           probe_id, veg_id, site_name, year)) %>%
+  left_join(select(met, timestamp, vpd), by = "timestamp")
 
-nrow(sap) - nrow(test)
+nrow(sap) - nrow(test) # down from 12.8 to 8.55 million rows
+
+
+##### Develop algorithm for removing positive vdelta-VPD relationships #####
+# Attempt 1: through the clipped data
+# Loop through to test r
+clip$cor_vpd <- c() # new column
+for(i in 1:nrow(clip)) {
+  st <- clip$date_start[i]
+  en <- clip$date_end[i]
+  probe <- clip$probe_id[i]
+  
+  temp <- test |> 
+    filter(probe_id == probe, 
+           date >= st, 
+           date <= en) 
+  clip$cor_vpd[i] <- cor(select(temp, vdelta, vpd))[1, 2]
+}
+
+hist(clip$cor_vpd)
+
+# Double check the positive ones for sure
+check_vpd <- clip |> 
+  filter(cor_vpd > 0) |> 
+  arrange(site_name, probe_id, year, cor_vpd)
+
+# Loop through check_vpd and print plots?
+for(i in 1:nrow(check_vpd)) {
+  st <- check_vpd$date_start[i]
+  en <- check_vpd$date_end[i]
+  probe <- check_vpd$probe_id[i]
+  
+  temp <- test |> 
+    filter(probe_id == probe, 
+           date >= st, 
+           date <= en) 
+  
+  fig1 <- ggplot(temp) +
+    geom_point(aes(x = timestamp,
+                   y = vdelta),
+               size =  0.2) +
+    scale_x_datetime("Date") +
+    scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
+    theme_bw(base_size = 10)
+  
+  fig2 <- ggplot(temp) +
+    geom_line(aes(x = timestamp,
+                  y = vpd)) +
+    scale_x_datetime("Date") +
+    scale_y_continuous("VPD (kPa)") +
+    theme_bw(base_size = 10)
+  
+  fig3 <- ggplot(temp) +
+    geom_point(aes(x = vpd, 
+                   y = vdelta, 
+                   color = as.factor(doy)),
+               size =  0.2) +
+    scale_x_continuous("VPD (kPa)") +
+    scale_y_continuous(expression(paste(Delta, " V (mV)"))) +
+    theme_bw(base_size = 10) +
+    annotate("text", x = max(temp$vpd,  na.rm = TRUE),
+             y = max(temp$vdelta, na.rm = TRUE),
+             label = paste0("r = ", round(check_vpd$cor_vpd[i], 3)),
+             vjust = 1,
+             hjust = 1) +
+    guides(color = "none")
+  
+  figa <- plot_grid(fig1, fig2,
+                    nrow = 2, 
+                    rel_heights = c(1.25, 1),
+                    align = "v")
+  fig <- plot_grid(figa, fig3, 
+            nrow = 1,
+            rel_widths = c(2, 1)) 
+  
+  nm <- paste0(check_vpd$site_name[i], "_",
+               check_vpd$veg_id[i], "_",
+               check_vpd$probe_id[i], "_",
+               check_vpd$date_start[i])
+  ggsave(filename = paste0("scripts/plot_sapflow_vpd/", nm, ".png"),
+         height = 3,
+         width  = 8,
+         units = "in")
+}
+
+# Do not overwrite, some manual checking has taken place, for the most part all or partial removal
+# write_csv(check_vpd, file = "data_raw/sapflow_check.csv") 
+
+# Attempt 2: Develop daily moving windows of r and detect start and end of removal periods
+# Use test, the full sapflow data that has been clipped manually
+
+v_cor <- test |> 
+  group_by(site_name, veg_id, probe_id, date) |> 
+  summarize(cor_vpd = cor(vdelta, vpd)) %>%
+  mutate(consec_before = slider::slide_lgl(
+    cor_vpd, ~all(.x < -0.35),
+    .before = 7,
+    .complete = TRUE))  
+
+v_summary <- v_cor |> 
+  mutate(group1 = with(rle(as.integer(consec_before)), 
+                       rep(seq_along(lengths), lengths))) |> 
+  filter(consec_before == TRUE) %>%
+  mutate(group2 = with(rle(as.integer(group1)), 
+                       rep(seq_along(lengths), lengths))) |> 
+  ungroup() |> 
+  group_by(site_name, veg_id, probe_id, group2) |> 
+  summarize(n = n(),
+            st = min(date),
+            en = max(date),
+            st_true = st - 7)
+
+v_clean <- v_cor |> 
+  inner_join(v_summary, join_by(between(date, st_true, en),
+                                site_name, veg_id, probe_id))
+
+
+sap_clean <- sap %>%
+  inner_join(v_summary, join_by(date >= st_true, date <= en, 
+                                site_name, veg_id, probe_id)) %>%
+  left_join(select(met, timestamp, vpd), by = "timestamp")
+
+nrow(sap) - nrow(sap_clean) # down from 12.8 to 7.8 million rows
+
+##### Baselining cleaned data for app #####
+
 # Set up empty list of lists - will have 94 elements, each a list
 
 sap_list <- list()
