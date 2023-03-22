@@ -273,12 +273,11 @@ for(i in 28:length(sensors)){
   
   sap_list[[i]] <- input_list
   
-  print(paste("Sensor", sensors[i], "complete,", i, "of 94"))
+  print(paste("Sensor", sensors[i], "complete,", i, "of 92"))
 }
 names(sap_list) <- sensors
 
 saveRDS(sap_list, file = "app/baseline.RDS")
-
 
 
 #### Sandbox for app to baseline ####
